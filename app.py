@@ -1,4 +1,4 @@
-from python_fasthtml.common import *
+from fasthtml.common import *
 from google.genai import types
 import google.genai as genai
 import base64
