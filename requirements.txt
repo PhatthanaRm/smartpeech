@@ -1,6 +1,5 @@
-fastapi==0.116.1
-uvicorn==0.35.0
-python-multipart==0.0.20
-google-generativeai==0.8.3
-Pillow==10.4.0
-PyMuPDF==1.24.3
+fasthtml>=0.1.0
+google-genai>=0.1.0
+Pillow>=10.0.0
+PyPDF2>=3.0.0
+python-multipart>=0.0.6

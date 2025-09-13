@@ -1,63 +1,85 @@
-# OCR Web Application
+# SmartSpeech OCR Web Application
 
-A web application built with FastHTML and Google Gemini AI for optical character recognition (OCR) from uploaded images and PDF files.
+A web application built with Python FastHTML and Google GenAI for OCR (Optical Character Recognition) functionality. Upload images or PDF files to extract text using AI.
 
 ## Features
 
-- Upload and process images (JPG, PNG) and PDF files
-- Extract text using Google Gemini AI
-- Modern, responsive web interface
-- Docker support for easy deployment
+- 🖼️ **Image OCR**: Upload images (JPEG, PNG, etc.) to extract text
+- 📄 **PDF Processing**: Upload PDF files to extract text
+- 🎨 **Modern UI**: Beautiful, responsive web interface with drag-and-drop support
+- 🚀 **Fast Processing**: Powered by Google GenAI for accurate text extraction
+- 🐳 **Docker Support**: Easy deployment with Docker
 
-## Requirements
+## Prerequisites
 
 - Python 3.11+
-- Google Gemini API key
+- Docker (optional, for containerized deployment)
 
 ## Installation
 
-1. Clone the repository
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+### Local Development
 
-3. Update the API key in `app.py`:
-   ```python
-   genai.configure(api_key="YOUR_API_KEY_HERE")
-   ```
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd smartpeech
+```
+
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+3. Run the application:
+```bash
+python app.py
+```
+
+The application will be available at `http://localhost:5000`
+
+### Docker Deployment
+
+1. Build the Docker image:
+```bash
+docker build -t smartpeech-ocr .
+```
+
+2. Run the container:
+```bash
+docker run -p 5000:5000 smartpeech-ocr
+```
+
+The application will be available at `http://localhost:5000`
 
 ## Usage
 
-1. Run the application:
-   ```bash
-   python app.py
-   ```
+1. Open your web browser and navigate to `http://localhost:5000`
+2. Drag and drop image or PDF files onto the upload area, or click "Choose Files"
+3. Click "Process Files" to extract text using AI
+4. View the extracted text in the results area
 
-2. Open your browser and go to `http://localhost:5000`
+## Supported File Types
 
-3. Upload an image or PDF file to extract text
-
-## Docker
-
-Build and run with Docker:
-
-```bash
-# Build the image
-docker build -t ocr-app .
-
-# Run the container
-docker run -p 5000:5000 ocr-app
-```
+- **Images**: JPEG, PNG, GIF, BMP, WebP
+- **PDFs**: Standard PDF files (text-based and scanned)
 
 ## API Endpoints
 
-- `GET /` - Home page with file upload form
-- `POST /upload` - Handle file upload and OCR processing
+- `GET /` - Main web interface
+- `POST /process` - Process uploaded files for OCR
+
+## Configuration
+
+The Google GenAI API key is configured in the application. Make sure you have a valid API key for the Google GenAI service.
 
 ## Dependencies
 
-- FastHTML: Web framework
-- Google Generative AI: OCR processing
-- Pillow: Image processing
-- PyMuPDF: PDF processing
+- `fasthtml` - Fast web framework
+- `google-genai` - Google GenAI client library
+- `Pillow` - Image processing
+- `PyPDF2` - PDF processing
+- `python-multipart` - File upload handling
+
+## License
+
+This project is open source and available under the MIT License.

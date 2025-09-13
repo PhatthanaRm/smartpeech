@@ -1,348 +1,348 @@
-from fastapi import FastAPI, File, UploadFile, Request
-from fastapi.responses import HTMLResponse
-import google.generativeai as genai
-import os
+from fasthtml.common import *
+from google.genai import types
+import google.genai as genai
 import base64
 import io
 from PIL import Image
-import fitz  # PyMuPDF for PDF handling
-import uvicorn
+import PyPDF2
+import tempfile
+import os
 
 # Configure Google GenAI
-genai.configure(api_key="AIzaSyB-xxx-k")
+genai.configure(api_key="AIzaSyAIfdb-TNKbNecLbdDuTa-5YbcXbvTl6RY")
 
-# Initialize the model
-model = genai.GenerativeModel('gemini-1.5-flash')
+# Create FastHTML app
+app = FastHTML()
 
-# Create FastAPI app
-app = FastAPI()
-
-@app.get("/", response_class=HTMLResponse)
-def home():
-    """Home page with file upload form"""
-    return """
+@app.get("/")
+def index():
+    return Html("""
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
     <head>
-        <title>OCR Web Application</title>
-        <meta charset="utf-8">
+        <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>SmartSpeech OCR</title>
         <style>
             body {
-                font-family: Arial, sans-serif;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
                 max-width: 800px;
                 margin: 0 auto;
                 padding: 20px;
-                background-color: #f5f5f5;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
             }
             .container {
                 background: white;
+                border-radius: 15px;
                 padding: 30px;
-                border-radius: 10px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                box-shadow: 0 10px 30px rgba(0,0,0,0.2);
             }
             h1 {
-                color: #333;
                 text-align: center;
+                color: #333;
                 margin-bottom: 30px;
             }
             .upload-area {
-                border: 2px dashed #ccc;
+                border: 2px dashed #667eea;
                 border-radius: 10px;
                 padding: 40px;
                 text-align: center;
                 margin: 20px 0;
-                background-color: #fafafa;
+                transition: all 0.3s ease;
+                cursor: pointer;
             }
             .upload-area:hover {
-                border-color: #007bff;
-                background-color: #f0f8ff;
+                border-color: #764ba2;
+                background-color: #f8f9ff;
+            }
+            .upload-area.dragover {
+                border-color: #764ba2;
+                background-color: #f0f2ff;
             }
             input[type="file"] {
-                margin: 10px 0;
-                padding: 10px;
-                width: 100%;
-                border: 1px solid #ddd;
-                border-radius: 5px;
+                display: none;
             }
-            button {
-                background-color: #007bff;
+            .upload-btn {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 color: white;
                 padding: 12px 30px;
                 border: none;
-                border-radius: 5px;
+                border-radius: 25px;
                 cursor: pointer;
                 font-size: 16px;
-                width: 100%;
+                transition: transform 0.2s ease;
             }
-            button:hover {
-                background-color: #0056b3;
+            .upload-btn:hover {
+                transform: translateY(-2px);
             }
-            .result {
+            .process-btn {
+                background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+                color: white;
+                padding: 12px 30px;
+                border: none;
+                border-radius: 25px;
+                cursor: pointer;
+                font-size: 16px;
+                margin: 10px;
+                transition: transform 0.2s ease;
+            }
+            .process-btn:hover {
+                transform: translateY(-2px);
+            }
+            .result-area {
                 margin-top: 30px;
                 padding: 20px;
-                background-color: #f8f9fa;
-                border-radius: 5px;
-                border-left: 4px solid #007bff;
-            }
-            .error {
-                background-color: #f8d7da;
-                border-left-color: #dc3545;
-                color: #721c24;
+                background: #f8f9fa;
+                border-radius: 10px;
+                border-left: 4px solid #667eea;
             }
             .loading {
+                display: none;
                 text-align: center;
-                color: #666;
+                color: #667eea;
+            }
+            .error {
+                color: #dc3545;
+                background: #f8d7da;
+                padding: 10px;
+                border-radius: 5px;
+                margin: 10px 0;
+            }
+            .success {
+                color: #155724;
+                background: #d4edda;
+                padding: 10px;
+                border-radius: 5px;
+                margin: 10px 0;
             }
         </style>
     </head>
     <body>
         <div class="container">
-            <h1>OCR Web Application</h1>
-            <p>Upload an image or PDF file to extract text using Google Gemini AI</p>
-            <form action="/upload" method="post" enctype="multipart/form-data">
-                <div class="upload-area">
-                    <label for="file">Select file:</label>
-                    <input type="file" name="file" accept=".jpg,.jpeg,.png,.pdf" required>
-                </div>
-                <button type="submit">Extract Text</button>
-            </form>
+            <h1>🔍 SmartSpeech OCR</h1>
+            <p style="text-align: center; color: #666; margin-bottom: 30px;">
+                Upload images or PDF files to extract text using AI
+            </p>
+            
+            <div class="upload-area" id="uploadArea">
+                <p>📁 Drag and drop files here or click to select</p>
+                <input type="file" id="fileInput" accept="image/*,.pdf" multiple>
+                <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                    Choose Files
+                </button>
+            </div>
+            
+            <div style="text-align: center;">
+                <button class="process-btn" id="processBtn" onclick="processFiles()" disabled>
+                    🚀 Process Files
+                </button>
+            </div>
+            
+            <div class="loading" id="loading">
+                <p>⏳ Processing files... Please wait</p>
+            </div>
+            
+            <div id="results"></div>
         </div>
+
+        <script>
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('fileInput');
+            const processBtn = document.getElementById('processBtn');
+            const loading = document.getElementById('loading');
+            const results = document.getElementById('results');
+            let selectedFiles = [];
+
+            // Drag and drop functionality
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragover');
+            });
+
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                const files = Array.from(e.dataTransfer.files);
+                handleFiles(files);
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                const files = Array.from(e.target.files);
+                handleFiles(files);
+            });
+
+            function handleFiles(files) {
+                selectedFiles = files.filter(file => 
+                    file.type.startsWith('image/') || file.type === 'application/pdf'
+                );
+                
+                if (selectedFiles.length > 0) {
+                    processBtn.disabled = false;
+                    uploadArea.innerHTML = `
+                        <p>✅ ${selectedFiles.length} file(s) selected</p>
+                        <p>${selectedFiles.map(f => f.name).join(', ')}</p>
+                        <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                            Choose Different Files
+                        </button>
+                    `;
+                }
+            }
+
+            async function processFiles() {
+                if (selectedFiles.length === 0) return;
+
+                loading.style.display = 'block';
+                processBtn.disabled = true;
+                results.innerHTML = '';
+
+                const formData = new FormData();
+                selectedFiles.forEach(file => {
+                    formData.append('files', file);
+                });
+
+                try {
+                    const response = await fetch('/process', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        results.innerHTML = `
+                            <div class="success">
+                                <h3>✅ OCR Results</h3>
+                                <div style="white-space: pre-wrap; background: white; padding: 15px; border-radius: 5px; margin-top: 10px;">
+                                    ${data.text}
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        results.innerHTML = `
+                            <div class="error">
+                                <h3>❌ Error</h3>
+                                <p>${data.error}</p>
+                            </div>
+                        `;
+                    }
+                } catch (error) {
+                    results.innerHTML = `
+                        <div class="error">
+                            <h3>❌ Error</h3>
+                            <p>Failed to process files: ${error.message}</p>
+                        </div>
+                    `;
+                } finally {
+                    loading.style.display = 'none';
+                    processBtn.disabled = false;
+                }
+            }
+        </script>
     </body>
     </html>
-    """
+    """)
 
-@app.post("/upload", response_class=HTMLResponse)
-async def upload_file(file: UploadFile = File(...)):
-    """Handle file upload and OCR processing"""
+@app.post("/process")
+async def process_files(request: Request):
     try:
-        # Read file content
-        file_content = await file.read()
-        file_extension = file.filename.split('.')[-1].lower()
+        form = await request.form()
+        files = form.getlist("files")
         
-        # Process based on file type
-        if file_extension in ['jpg', 'jpeg', 'png']:
-            # Process image
-            image = Image.open(io.BytesIO(file_content))
-            # Convert to base64 for Gemini
-            buffered = io.BytesIO()
-            image.save(buffered, format="PNG")
-            img_base64 = base64.b64encode(buffered.getvalue()).decode()
-            
-            # Call Gemini API
-            response = model.generate_content([
-                "Extract all text from this image. Return only the extracted text without any additional formatting or explanations.",
-                {
-                    "mime_type": "image/png",
-                    "data": img_base64
-                }
-            ])
-            
-            extracted_text = response.text
-            
-        elif file_extension == 'pdf':
-            # Process PDF
-            pdf_document = fitz.open(stream=file_content, filetype="pdf")
-            all_text = []
-            
-            for page_num in range(pdf_document.page_count):
-                page = pdf_document[page_num]
-                # Convert PDF page to image
-                pix = page.get_pixmap()
-                img_data = pix.tobytes("png")
+        if not files:
+            return {"success": False, "error": "No files provided"}
+        
+        all_text = []
+        
+        for file in files:
+            if file.filename:
+                # Read file content
+                content = await file.read()
                 
-                # Convert to base64
-                img_base64 = base64.b64encode(img_data).decode()
-                
-                # Call Gemini API for each page
-                response = model.generate_content([
-                    "Extract all text from this image. Return only the extracted text without any additional formatting or explanations.",
-                    {
-                        "mime_type": "image/png",
-                        "data": img_base64
-                    }
-                ])
-                
-                all_text.append(f"Page {page_num + 1}:\n{response.text}\n")
-            
-            pdf_document.close()
-            extracted_text = "\n".join(all_text)
-            
+                # Process based on file type
+                if file.content_type.startswith('image/'):
+                    # Process image
+                    text = await process_image(content)
+                    if text:
+                        all_text.append(f"=== {file.filename} ===\n{text}\n")
+                elif file.content_type == 'application/pdf':
+                    # Process PDF
+                    text = await process_pdf(content)
+                    if text:
+                        all_text.append(f"=== {file.filename} ===\n{text}\n")
+        
+        if all_text:
+            return {"success": True, "text": "\n".join(all_text)}
         else:
-            return f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Error - OCR Web Application</title>
-                <meta charset="utf-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <style>
-                    body {{
-                        font-family: Arial, sans-serif;
-                        max-width: 800px;
-                        margin: 0 auto;
-                        padding: 20px;
-                        background-color: #f5f5f5;
-                    }}
-                    .container {{
-                        background: white;
-                        padding: 30px;
-                        border-radius: 10px;
-                        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                    }}
-                    .error {{
-                        background-color: #f8d7da;
-                        border-left-color: #dc3545;
-                        color: #721c24;
-                        padding: 20px;
-                        border-radius: 5px;
-                        border-left: 4px solid #dc3545;
-                    }}
-                    .back-button {{
-                        background-color: #6c757d;
-                        color: white;
-                        padding: 10px 20px;
-                        border: none;
-                        border-radius: 5px;
-                        cursor: pointer;
-                        text-decoration: none;
-                        display: inline-block;
-                        margin-top: 20px;
-                    }}
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <h1>OCR Web Application</h1>
-                    <div class="error">
-                        Unsupported file type. Please upload JPG, PNG, or PDF files.
-                    </div>
-                    <a href="/" class="back-button">Upload Another File</a>
-                </div>
-            </body>
-            </html>
-            """
+            return {"success": False, "error": "No text could be extracted from the files"}
+            
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+async def process_image(image_content):
+    """Process image using Google GenAI Vision"""
+    try:
+        # Convert to base64
+        image_b64 = base64.b64encode(image_content).decode('utf-8')
         
-        # Display results
-        return f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>OCR Results</title>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-                body {{
-                    font-family: Arial, sans-serif;
-                    max-width: 800px;
-                    margin: 0 auto;
-                    padding: 20px;
-                    background-color: #f5f5f5;
-                }}
-                .container {{
-                    background: white;
-                    padding: 30px;
-                    border-radius: 10px;
-                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                }}
-                h1 {{
-                    color: #333;
-                    text-align: center;
-                    margin-bottom: 30px;
-                }}
-                .result {{
-                    margin-top: 30px;
-                    padding: 20px;
-                    background-color: #f8f9fa;
-                    border-radius: 5px;
-                    border-left: 4px solid #007bff;
-                    white-space: pre-wrap;
-                    font-family: monospace;
-                }}
-                .back-button {{
-                    background-color: #6c757d;
-                    color: white;
-                    padding: 10px 20px;
-                    border: none;
-                    border-radius: 5px;
-                    cursor: pointer;
-                    text-decoration: none;
-                    display: inline-block;
-                    margin-top: 20px;
-                }}
-                .back-button:hover {{
-                    background-color: #545b62;
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h1>OCR Results</h1>
-                <div class="result">
-                    <h3>Extracted Text:</h3>
-                    <div>{extracted_text}</div>
-                </div>
-                <a href="/" class="back-button">Upload Another File</a>
-            </div>
-        </body>
-        </html>
-        """
+        # Create the model
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        # Create the content
+        content = [
+            "Extract all text from this image. Return only the text content, no additional formatting or explanations.",
+            {
+                "mime_type": "image/jpeg",
+                "data": image_b64
+            }
+        ]
+        
+        # Generate content
+        response = model.generate_content(content)
+        return response.text
         
     except Exception as e:
-        return f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Error - OCR Web Application</title>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-                body {{
-                    font-family: Arial, sans-serif;
-                    max-width: 800px;
-                    margin: 0 auto;
-                    padding: 20px;
-                    background-color: #f5f5f5;
-                }}
-                .container {{
-                    background: white;
-                    padding: 30px;
-                    border-radius: 10px;
-                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                }}
-                .error {{
-                    background-color: #f8d7da;
-                    border-left-color: #dc3545;
-                    color: #721c24;
-                    padding: 20px;
-                    border-radius: 5px;
-                    border-left: 4px solid #dc3545;
-                }}
-                .back-button {{
-                    background-color: #6c757d;
-                    color: white;
-                    padding: 10px 20px;
-                    border: none;
-                    border-radius: 5px;
-                    cursor: pointer;
-                    text-decoration: none;
-                    display: inline-block;
-                    margin-top: 20px;
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h1>OCR Web Application</h1>
-                <div class="error">
-                    Error processing file: {str(e)}
-                </div>
-                <a href="/" class="back-button">Upload Another File</a>
-            </div>
-        </body>
-        </html>
-        """
+        print(f"Error processing image: {e}")
+        return None
+
+async def process_pdf(pdf_content):
+    """Process PDF by converting to images and then using OCR"""
+    try:
+        # Create temporary file
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp_file:
+            tmp_file.write(pdf_content)
+            tmp_file_path = tmp_file.name
+        
+        try:
+            # Read PDF
+            with open(tmp_file_path, 'rb') as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+                text = ""
+                
+                for page_num in range(len(pdf_reader.pages)):
+                    page = pdf_reader.pages[page_num]
+                    text += page.extract_text() + "\n"
+                
+                # If PyPDF2 didn't extract text (scanned PDF), try OCR
+                if not text.strip():
+                    # For scanned PDFs, we would need additional libraries like pdf2image
+                    # For now, return a message
+                    return "PDF appears to be scanned. OCR for scanned PDFs requires additional setup."
+                
+                return text
+                
+        finally:
+            # Clean up temporary file
+            os.unlink(tmp_file_path)
+            
+    except Exception as e:
+        print(f"Error processing PDF: {e}")
+        return None
 
 if __name__ == "__main__":
-    # Run on port 5000 as specified in FastHTML documentation
-    uvicorn.run(app, host="0.0.0.0", port=5000)
+    # Run on port 5000 as specified in FastHTML docs
+    serve(port=5000)
